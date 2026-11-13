@@ -2,6 +2,8 @@ name: Pipeline
 
 on:
   push:
+    branches: [final-solution]
+  pull_request:
   workflow_dispatch:
     inputs:
       fail_stage:
@@ -9,6 +11,9 @@ on:
         type: choice
         default: none
         options: [none, lint, unit-tests, build, deploy-staging, e2e-tests, deploy-production]
+
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -59,6 +64,8 @@ jobs:
 
   deploy-staging:
     needs: build
+    if: github.ref == 'refs/heads/final-solution' && github.event_name == 'push'
+    environment: staging
     runs-on: ubuntu-latest
     steps:
       - name: Download the release notes
@@ -92,6 +99,7 @@ jobs:
 
   deploy-production:
     needs: e2e-tests
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to production
@@ -103,3 +111,9 @@ jobs:
         run: |
           echo "Production did not come back up"
           exit 1
+      - name: Write the release report
+        run: |
+          echo "### Released to production" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Triggered by: ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
