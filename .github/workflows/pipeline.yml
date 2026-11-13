@@ -57,22 +57,8 @@ jobs:
           name: release-notes
           path: release-notes.txt
 
-  e2e-tests:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run the end-to-end tests
-        run: |
-          echo "Running 12 end-to-end tests against staging..."
-          sleep 6
-      - name: Break on purpose
-        if: inputs.fail_stage == 'e2e-tests'
-        run: |
-          echo "2 of 12 end-to-end tests failed"
-          exit 1
-
   deploy-staging:
-    needs: [e2e-tests]
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download the release notes
@@ -90,8 +76,22 @@ jobs:
           echo "Staging did not come back up"
           exit 1
 
-  deploy-production:
+  e2e-tests:
     needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the end-to-end tests
+        run: |
+          echo "Running 12 end-to-end tests against staging..."
+          sleep 6
+      - name: Break on purpose
+        if: inputs.fail_stage == 'e2e-tests'
+        run: |
+          echo "2 of 12 end-to-end tests failed"
+          exit 1
+
+  deploy-production:
+    needs: e2e-tests
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to production
