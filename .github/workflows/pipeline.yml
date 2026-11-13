@@ -20,7 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Lint the code
-        run: exit 1
+        run: |
+          echo "Linting the code..."
+          sleep 3
       - name: Break on purpose
         if: inputs.fail_stage == 'lint'
         run: |
