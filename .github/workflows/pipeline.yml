@@ -3,13 +3,103 @@ name: Pipeline
 on:
   push:
   workflow_dispatch:
+    inputs:
+      fail_stage:
+        description: Stage to break on purpose
+        type: choice
+        default: none
+        options: [none, lint, unit-tests, build, deploy-staging, e2e-tests, deploy-production]
 
 jobs:
-  hello:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
+      - name: Lint the code
         run: |
-          echo "Commit: ${{ github.sha }}"
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Triggered by: ${{ github.actor }} (${{ github.event_name }})"
+          echo "Linting the code..."
+          sleep 3
+      - name: Break on purpose
+        if: inputs.fail_stage == 'lint'
+        run: |
+          echo "Lint found 2 problems"
+          exit 1
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the unit tests
+        run: |
+          echo "Running 128 unit tests..."
+          sleep 5
+      - name: Break on purpose
+        if: inputs.fail_stage == 'unit-tests'
+        run: |
+          echo "1 of 128 unit tests failed"
+          exit 1
+
+  build:
+    needs: [lint, unit-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build
+        run: |
+          echo "Building version ${{ github.sha }}..."
+          sleep 3
+          echo "Release notes for version ${{ github.sha }}" > release-notes.txt
+      - name: Break on purpose
+        if: inputs.fail_stage == 'build'
+        run: |
+          echo "The build failed"
+          exit 1
+      - name: Upload the release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.txt
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the release notes
+        uses: actions/download-artifact@v7
+        with:
+          name: release-notes
+      - name: Deploy to staging
+        run: |
+          cat release-notes.txt
+          echo "Deploying to staging..."
+          sleep 3
+      - name: Break on purpose
+        if: inputs.fail_stage == 'deploy-staging'
+        run: |
+          echo "Staging did not come back up"
+          exit 1
+
+  e2e-tests:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the end-to-end tests
+        run: |
+          echo "Running 12 end-to-end tests against staging..."
+          sleep 6
+      - name: Break on purpose
+        if: inputs.fail_stage == 'e2e-tests'
+        run: |
+          echo "2 of 12 end-to-end tests failed"
+          exit 1
+
+  deploy-production:
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production..."
+          sleep 3
+      - name: Break on purpose
+        if: inputs.fail_stage == 'deploy-production'
+        run: |
+          echo "Production did not come back up"
+          exit 1
